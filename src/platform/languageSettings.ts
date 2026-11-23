@@ -744,6 +744,17 @@ export function effectiveRoots(detected: readonly RootFolder[], ps: ProjectStruc
   return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
+const JVM_BUILD_FILE = /(^|\/)(pom\.xml|build\.gradle(\.kts)?)$/;
+const JVM_SOURCE_DIR = /(^|\/)(java|kotlin|scala|groovy)$/;
+
+/** Whether `root` is a JVM source / test root, where a package name maps to its folder. */
+export function isJvmPackageRoot(root: Pick<RootFolder, "path" | "kind" | "detectedFrom">): boolean {
+  return (
+    (root.kind === "source" || root.kind === "test") &&
+    (JVM_BUILD_FILE.test(root.detectedFrom ?? "") || JVM_SOURCE_DIR.test(root.path))
+  );
+}
+
 /** Effective role of a folder (exact match): what its icon shows. */
 export function rootRole(roots: readonly RootFolder[], rel: string): FolderRole | null {
   const r = normalizeFolder(rel);

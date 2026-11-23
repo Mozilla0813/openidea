@@ -84,6 +84,7 @@ import {
 import { featureBackoff } from "./availability";
 import { navigationStarted } from "./foreground";
 import { requestHover, showPhpConstructDocumentation } from "./hover";
+import { packageFolderAt, revealPackageFolder } from "./packageNavigation";
 import { declarationSummary, renderCode } from "./markdown";
 import { enclosingType } from "@/editor/navigation/lineMarkers";
 import { projectPythonHierarchy, pythonImplementationTargets } from "@/editor/navigation/pythonHierarchy";
@@ -493,6 +494,10 @@ async function gotoResolved(
   let locs: DeclarationTarget[];
   let fromSyntax = false;
   const declaration = kind === "definition" || kind === "declaration";
+  // A JVM package's declaration is its folder: ⌘B on `a.b` in `package a.b;` / `import a.b.C;`
+  // selects the folder in the Project view instead of asking the server (which has no answer
+  // for a package part). A library package has no folder and keeps the server's answer.
+  if (declaration && (await revealPackageFolder(view, offset))) return;
   // A segment of an import path names a file — possibly in a dependency project, which
   // neither the single-root server nor the name index resolves.
   const moduleName = declaration ? importModuleName(view, doc, offset) : null;
@@ -913,6 +918,8 @@ async function probeNavigation(
 ): Promise<{ info: NavInfo | null; plugin?: NavigationMatch } | null> {
   const plugin = await contributedNavigation(view, offset).catch(() => null);
   if (plugin) return { info: null, plugin };
+  // A JVM package name is navigable too: its declaration is its folder in the project.
+  if (await packageFolderAt(view, offset).catch(() => null)) return { info: null };
   const doc = docOf(view);
   let navigable = contributedAtAll<ContributedDefinition>(view.state, CONTRIBUTED_DEFINITION, offset).some(
     (definition) => definition.canHandle?.(view.state, offset) ?? true,
